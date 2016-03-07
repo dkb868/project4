@@ -105,15 +105,92 @@ bool DiskMultiMap::insert(const std::string &key, const std::string &value, cons
 }
 
 DiskMultiMap::Iterator DiskMultiMap::search(const std::string &key) {
-    return DiskMultiMap::Iterator();
+    if (key.size() > 120) return DiskMultiMap::Iterator();
+    int hash = std::hash<std::string>()(key);
+    int index = (hash % m_header.num_buckets) + m_header.hashmap_head;
+    Bucket bucket;
+    // get the bucket at that hash index
+    m_bf.read(bucket, index);
+    // if the list is empty then return
+    if (bucket.head == 0) return DiskMultiMap::Iterator();
+    BucketNode searchNode;
+    m_bf.read(searchNode, bucket.head);
+    while(true) {
+        // if we find it return it
+        if (searchNode.m_key == key)
+            return DiskMultiMap::Iterator(searchNode.m_offset,this);
+        // if we are at the  end, return invalid
+        if (searchNode.m_next == 0)
+            return DiskMultiMap::Iterator();
+        // else increment
+        m_bf.read(searchNode, searchNode.m_next);
+    }
 }
 
+
+
 int DiskMultiMap::erase(const std::string &key, const std::string &value, const std::string &context) {
-    return 0;
+    if (key.size() > 120 || value.size() > 120 || context.size() > 120) return 0;
+    int erase_count = 0; // count the erases lol
+    int hash = std::hash<std::string>()(key);
+    int index = (hash % m_header.num_buckets) + m_header.hashmap_head;
+    Bucket bucket;
+    // get the bucket at that hash index
+    m_bf.read(bucket, index);
+    // if the list is empty then return
+    if (bucket.head == 0) return 0;
+
+    // if we want to delete first
+    // point head to second node
+    BinaryFile::Offset p = bucket.head;
+    BucketNode tempNode;
+    BucketNode searchNode;
+    m_bf.read(tempNode, bucket.head);
+    // if value is found
+    if (tempNode.m_key == key && tempNode.m_value == value && tempNode.m_context == context){
+        // head = p->next
+        bucket.head = tempNode.m_next;
+        // increment count
+        erase_count++;
+        // TODO push front deleted tempnode
+        // push_front_deleted(tempnode.offset);
+    }
+    while(tempNode.m_next != 0) {
+        // if we find it return it
+        m_bf.read(searchNode, tempNode.m_next);
+        if (searchNode.m_key == key && searchNode.m_value == value && searchNode.m_context == context){
+            // tempnode points to node above
+            tempNode.m_next = searchNode.m_next;
+            // delete searchndoe TODO
+            // push_front_deleted(searchNode.offset);
+            // something was deleted so icnrement delete count
+            erase_count++;
+            m_bf.write(tempNode,tempNode.m_offset);
+            // continue since we already changed tempnodes next value,
+            // tempnode.m_next will already give us something new
+            continue;
+        }
+        // else increment
+        m_bf.read(tempNode, tempNode.m_next);
+    }
+
+
+    return erase_count;
+
 }
 
 DiskMultiMap::Iterator::Iterator() {
     m_offset = 0;
+}
+
+
+DiskMultiMap::Iterator::Iterator(BinaryFile::Offset offset, DiskMultiMap *map) {
+    m_offset = offset;
+    m_map = map;
+}
+
+DiskMultiMap::Iterator::Iterator(DiskMultiMap *map) {
+    m_map = map;
 }
 
 bool DiskMultiMap::Iterator::isValid() const {
@@ -121,10 +198,46 @@ bool DiskMultiMap::Iterator::isValid() const {
 }
 
 DiskMultiMap::Iterator &DiskMultiMap::Iterator::operator++() {
-    BucketNode bucketNode;
-    
+    if (!isValid()){
+        return *this;
+    }
+
+    BucketNode bucketNode; // TODO while soemthign
+    (m_map->m_bf).read(bucketNode,m_offset);
+    std::string original_key = bucketNode.m_key;
+    while (true) {
+        // if we reach the end break
+        if (bucketNode.m_next == 0) {
+            // set state to invalid then return
+            m_offset = 0;
+            return *this;
+        }
+        // increment bucketNode
+        (m_map->m_bf).read(bucketNode,bucketNode.m_next);
+        // if the key is found
+        if (bucketNode.m_key == original_key){
+            // point to it
+            m_offset = bucketNode.m_offset;
+            return *this;
+        }
+    }
+
+
 }
 
 MultiMapTuple DiskMultiMap::Iterator::operator*() {
-    return MultiMapTuple();
+    if (!isValid()){
+        // hopefully empty strings
+        return MultiMapTuple();
+    }
+    MultiMapTuple tuple;
+    BucketNode bucketNode;
+    // read the bucket node at the current offset
+    (m_map->m_bf).read(bucketNode,m_offset);
+
+    // put all that data into tuple
+    tuple.context = bucketNode.m_context;
+    tuple.key = bucketNode.m_key;
+    tuple.value = bucketNode.m_value;
+    return tuple;
 }

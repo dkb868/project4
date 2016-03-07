@@ -54,11 +54,12 @@ class DiskMultiMap
 
 {
 public:
-    BinaryFile m_bf;
     class Iterator
     {
     public:
         Iterator();
+        Iterator(BinaryFile::Offset offset, DiskMultiMap* map);
+        Iterator(DiskMultiMap* map);
         // You may add additional constructors
         bool isValid() const;
         Iterator& operator++();
@@ -66,6 +67,7 @@ public:
 
     private:
         BinaryFile::Offset m_offset;
+        DiskMultiMap* m_map;
         // Your private member declarations will go here
     };
 
@@ -79,6 +81,7 @@ public:
     int erase(const std::string& key, const std::string& value, const std::string& context);
 
 private:
+    BinaryFile m_bf;
     Header m_header;
     // Your private member declarations will go here
 };
