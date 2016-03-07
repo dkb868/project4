@@ -2,11 +2,16 @@
 #include <functional>
 
 DiskMultiMap::DiskMultiMap() {
-
+    m_header.num_buckets = 0;
+    m_header.hashmap_head = sizeof(Header);
+    m_header.hashmap_end = m_header.hashmap_head;
+    m_header.m_size = 0;
+    // LET 0 mean NULL
+    m_header.m_deleted_node_head = 0;
 }
 
 DiskMultiMap::~DiskMultiMap() {
-
+    close();
 }
 
 bool DiskMultiMap::createNew(const std::string &filename, unsigned int numBuckets) {
@@ -14,6 +19,8 @@ bool DiskMultiMap::createNew(const std::string &filename, unsigned int numBucket
         m_bf.close();
     }
     if (m_bf.createNew(filename)) {
+        // TODO delete this intiliazer stuff when SAFE
+        // TODO because it's now done in the constructor
         m_header.num_buckets = numBuckets;
         m_header.hashmap_head = sizeof(Header);
         m_header.hashmap_end = numBuckets * sizeof(Bucket) + m_header.hashmap_head;
