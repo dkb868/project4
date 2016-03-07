@@ -5,10 +5,8 @@
 #include "DiskMultiMap.h"
 #include "MultiMapTuple.h"
 #include "BinaryFile.h"
+#include <cstring>
 
-// because pointing to '0' would be pointing to the beginning of our header.
-// this may be unnecessary but i feel like it
-#define NULLPTR -1;
 
 
 // this struct will deal with the header information
@@ -17,19 +15,46 @@ struct Header {
     BinaryFile::Offset m_deleted_node_head;
     BinaryFile::Offset hashmap_head;
     BinaryFile::Offset hashmap_end;
+    // stores the amount of bucket nodes
+    int m_size;
 };
 // the struct for our bucket, since this is an open hash table, the bucket just has a  linked list
 struct Bucket {
-    Bucket() : head(NULL) {};
+    Bucket() : head(0) {};
     // head of linked list;
     BinaryFile::Offset head;
 };
 
+struct BucketNode {
+    BucketNode() {
+        m_key= m_value = m_context=0;
+        m_offset = 0;
+        m_next = 0;
+    };
+    BucketNode(const string &key, const string &value, const string &context, BinaryFile::Offset next){
+       m_key = new char[120];
+        m_value = new char[120];
+        m_context = new char[120];
+        strcpy(m_key, key.c_str());
+        strcpy(m_value, value.c_str());
+        strcpy(m_context, context.c_str());
+        m_offset = 0;
+        m_next = next;
+    };
+    char* m_key;
+    char* m_value;
+    char* m_context;
+    BinaryFile::Offset m_offset;
+    BinaryFile::Offset m_next;
+
+};
+
 
 class DiskMultiMap
+
 {
 public:
-
+    BinaryFile m_bf;
     class Iterator
     {
     public:
@@ -40,6 +65,7 @@ public:
         MultiMapTuple operator*();
 
     private:
+        BinaryFile::Offset m_offset;
         // Your private member declarations will go here
     };
 
@@ -53,7 +79,6 @@ public:
     int erase(const std::string& key, const std::string& value, const std::string& context);
 
 private:
-    BinaryFile m_bf;
     Header m_header;
     // Your private member declarations will go here
 };
