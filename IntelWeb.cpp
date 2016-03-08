@@ -2,6 +2,7 @@
 // Created by mitrikyle on 3/7/16.
 //
 
+#include <sstream>
 #include "IntelWeb.h"
 
 
@@ -59,6 +60,35 @@ void IntelWeb::close() {
 }
 
 bool IntelWeb::ingest(const std::string &telemetryFile) {
+    ifstream file;
+    std::string line;
+    // open the file
+    file.open("/home/mitrikyle/ClionProjects/project4/log.txt");
+    // if succesful
+    if(file.is_open()){
+        // while we aren't at the end of the file
+        while(getline(file,line)){
+            // Things are parsed and stored in maps
+            std::cout << line << endl;
+            std::string buffer,machine,initiator,target;
+            std::stringstream ss(line);
+            // we know the first thign in the file is the machine
+            // the second is the intiator
+            // and 3rd is the target
+            // THE DATA MUST ALWAYS BE IN THIS ORDER IN A VALID LOGFILE
+            ss >> machine;
+            ss >> initiator;
+            ss >> target;
+            cout << "Machine: " << machine << endl;
+            cout << "Initiator: " << initiator << endl;
+            cout << "Target: " << target << endl;
+            // store this data in our maps.
+            // unstable code below TODO WARNING
+          //  m_initiator_map.insert(initiator, target, machine);
+          //  m_target_map.insert(target,initiator,machine);
+
+        }
+    }
     return false;
 }
 
