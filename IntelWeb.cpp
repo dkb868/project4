@@ -6,7 +6,7 @@
 #include "IntelWeb.h"
 // going to need this
 #include <queue>
-
+#include <set>
 
 
 IntelWeb::IntelWeb() {
@@ -91,6 +91,7 @@ bool IntelWeb::ingest(const std::string &telemetryFile) {
           //  m_target_map.insert(target,initiator,machine);
 
         }
+        return true;
     }
     return false;
 }
@@ -98,11 +99,92 @@ bool IntelWeb::ingest(const std::string &telemetryFile) {
 unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsigned int minPrevalenceToBeGood,
                              std::vector <std::string> &badEntitiesFound,
                              std::vector<InteractionTuple> &interactions) {
+    // indicators is a vector of known malicous entities
+
+    // Compute prevalence
+    // prevalence = no. occcurences in target
+    // + no. occurences in intiator
     // TODO
     // for every malicious thingy
     // add it to the queue
+    // this queue stores all the bad entities :o
+    std::queue<string> bad_entities;
+    // this set stores all the bad entiteies we already dealt with
+    std::set<string> bad_entities_history;
+    for (std::string indicator : indicators){
+        bad_entities.push(indicator);
+    }
+    while (!bad_entities.empty()){
+        std::string curr = bad_entities.front();
+        // if we are checking something in history, continue
+        if (bad_entities_history.find(curr) != bad_entities_history.end())
+            continue;
+        // add the curr string to the history
+        bad_entities_history.insert(curr);
+        bad_entities.pop();
+        // getiterator to all files associated with the current, first from the intiatior map
+        auto it = m_initiator_map.search(curr);
+        // TODO what about that other map :o
+        // apply the rules to all the associated files
+        while (it.isValid()){
+            // if the value is already malicious, go to next
+            if (bad_entities_history.find((*it).value) != bad_entities_history.end()){
+                ++it;
+                continue;
+            } else {
+                // otherwise apply the actual rules wtf
+                // get the prevalance of the value/target
+                int prevalance = 0;
+                auto initiator_it = m_initiator_map.search(curr);
+                while (initiator_it.isValid()){
+                    ++prevalance;
+                    ++initiator_it;
+                }
+                auto target_it = m_target_map.search(curr);
+                while (target_it.isValid()){
+                    ++prevalance;
+                    ++target_it;
+                }
+
+                // we now, probably inefficiently , have the prevalance
+                // if the prevalance is greater than equal to the good threshhold, continue,
+                // because the thing is then not a virus
+                if (prevalance >= minPrevalenceToBeGood){
+                    ++it;
+                    //TODO, also add to the history? or nah?
+                    continue;
+                } else {
+                    // store new virus value
+                    std::string bad_discovery = (*it).value;
+                    // otherwise WE FOUND A VIRUS OMG WTF TO DO?
+                    // add it to the vector of bad entities?
+                    // TODO should values in the given vector of malicious values be added to badEntitiesFound as well???
+                    badEntitiesFound.push_back(bad_discovery);
+                    // add to the queue of bad entites
+                    bad_entities.push(bad_discovery);
+                    // add all the interaction pairs
+                    // TODO DEAR LORD HOW MUCH WHILE LOOPS?
+                    while (it.isValid()){
+                        MultiMapTuple temp = (*it);
+                        InteractionTuple interactionTuple(temp.key,temp.value,temp.context);
+                        // store this tuple in the vector
+                        interactions.push_back(interactionTuple);
+                        // increment the iterator
+                        ++it;
+                    }
+
+
+                }
+
+            }
+
+        }
+    }
     // while the queue isn't empty,
     // apply rules to the item in queue
+        // APPLYING RULES
+        // basically rules say if two files have a relationship, and one is malicious,
+        // then the other becomes malicious unless it has a high prevalcne
     // add the item tp the set of already done items
     // add all the newly discovered malicious items to the queue
     // keep going
