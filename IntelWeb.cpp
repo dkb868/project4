@@ -4,6 +4,9 @@
 
 #include <sstream>
 #include "IntelWeb.h"
+// going to need this
+#include <queue>
+
 
 
 IntelWeb::IntelWeb() {
@@ -95,6 +98,14 @@ bool IntelWeb::ingest(const std::string &telemetryFile) {
 unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsigned int minPrevalenceToBeGood,
                              std::vector <std::string> &badEntitiesFound,
                              std::vector<InteractionTuple> &interactions) {
+    // TODO
+    // for every malicious thingy
+    // add it to the queue
+    // while the queue isn't empty,
+    // apply rules to the item in queue
+    // add the item tp the set of already done items
+    // add all the newly discovered malicious items to the queue
+    // keep going
     return 0;
 }
 
