@@ -1,6 +1,7 @@
 #include "DiskMultiMap.h"
 #include <functional>
 #include <cassert>
+#include <cmath>
 
 DiskMultiMap::DiskMultiMap() {
     m_header.num_buckets = 0;
@@ -62,8 +63,7 @@ void DiskMultiMap::close() {
 
 bool DiskMultiMap::insert(const std::string &key, const std::string &value, const std::string &context) {
     if (key.size() > 120 || value.size() > 120 || context.size() > 120) return false;
-    int hash = std::hash<std::string>()(key);
-    int index = (hash % m_header.num_buckets) + m_header.hashmap_head;
+    int index = getBucketIndex(key);
     Bucket bucket;
     // get the bucket at that hash index
     assert(m_bf.read(bucket, index));
@@ -126,8 +126,7 @@ bool DiskMultiMap::insert(const std::string &key, const std::string &value, cons
 
 DiskMultiMap::Iterator DiskMultiMap::search(const std::string &key) {
     if (key.size() > 120) return DiskMultiMap::Iterator();
-    int hash = std::hash<std::string>()(key);
-    int index = (hash % m_header.num_buckets) + m_header.hashmap_head;
+    int index = getBucketIndex(key);
     Bucket bucket;
     // get the bucket at that hash index
     m_bf.read(bucket, index);
@@ -153,8 +152,7 @@ DiskMultiMap::Iterator DiskMultiMap::search(const std::string &key) {
 int DiskMultiMap::erase(const std::string &key, const std::string &value, const std::string &context) {
     if (key.size() > 120 || value.size() > 120 || context.size() > 120) return 0;
     int erase_count = 0; // count the erases lol
-    int hash = std::hash<std::string>()(key);
-    int index = (hash % m_header.num_buckets) + m_header.hashmap_head;
+    int index = getBucketIndex(key);
     Bucket bucket;
     // get the bucket at that hash index
     m_bf.read(bucket, index);
@@ -261,4 +259,13 @@ MultiMapTuple DiskMultiMap::Iterator::operator*() {
     tuple.key = bucketNode.m_key;
     tuple.value = bucketNode.m_value;
     return tuple;
+}
+
+// hashes a string and gets the location of the bucket,
+// since this fucked my code earlier, better have its own function
+int DiskMultiMap::getBucketIndex(const std::string &key) {
+    long hash = std::hash<std::string>()(key);
+    hash = abs(hash);
+    BinaryFile::Offset index = ((hash % m_header.num_buckets) * sizeof(Bucket))+ m_header.hashmap_head;
+    return index;
 }

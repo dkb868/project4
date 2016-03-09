@@ -79,6 +79,7 @@ public:
     bool insert(const std::string& key, const std::string& value, const std::string& context);
     Iterator search(const std::string& key);
     int erase(const std::string& key, const std::string& value, const std::string& context);
+    int getBucketIndex(const std::string& key);
 
 private:
     BinaryFile m_bf;
