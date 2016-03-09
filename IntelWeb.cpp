@@ -7,6 +7,7 @@
 // going to need this
 #include <queue>
 #include <set>
+#include <vector>
 
 
 IntelWeb::IntelWeb() {
@@ -197,7 +198,30 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
 }
 
 bool IntelWeb::purge(const std::string &entity) {
-    return false;
+    std::vector<MultiMapTuple> initiator_list;
+    std::vector<MultiMapTuple> target_list;
+    for (auto it = m_initiator_map.search(entity); it.isValid(); ++it){
+        initiator_list.push_back(*it);
+    }
+
+    for( auto target_it = m_target_map.search(entity); target_it.isValid() ; ++target_it){
+        target_list.push_back(*target_it);
+    }
+    for (auto tuple : initiator_list){
+        m_initiator_map.erase(tuple.key,tuple.value,tuple.context);
+        // reverse key and value for opposite maps
+        // i.e if deleting intiators from target, reverse
+        m_target_map.erase(tuple.value,tuple.key,tuple.context);
+    }
+
+    for (auto tuple: target_list){
+        m_target_map.erase(tuple.key,tuple.value,tuple.context);
+        // reverse key and value for opposite maps
+        // i.e if deleting target from intiators,reverse
+        m_initiator_map.erase(tuple.value,tuple.key,tuple.context);
+    }
+    // TODO these bool returns lol
+    return true;
 }
 
 // TODO should rpevalnce be stored on disk?
