@@ -7,6 +7,7 @@
 // going to need this
 #include <queue>
 #include <set>
+#include <vector>
 
 
 IntelWeb::IntelWeb() {
@@ -197,8 +198,8 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
 }
 
 bool IntelWeb::purge(const std::string &entity) {
-    vector<MultiMapTuple> initiator_list;
-    vector<MultiMapTuple> target_list;
+    std::vector<MultiMapTuple> initiator_list;
+    std::vector<MultiMapTuple> target_list;
     for (auto it = m_initiator_map.search(entity); it.isValid(); ++it){
         initiator_list.push_back(*it);
     }
