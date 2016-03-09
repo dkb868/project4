@@ -157,7 +157,6 @@ int DiskMultiMap::erase(const std::string &key, const std::string &value, const 
 
     // if we want to delete first
     // point head to second node
-    BinaryFile::Offset p = bucket.head;
     BucketNode tempNode;
     BucketNode searchNode;
     m_bf.read(tempNode, bucket.head);
@@ -167,8 +166,9 @@ int DiskMultiMap::erase(const std::string &key, const std::string &value, const 
         bucket.head = tempNode.m_next;
         // increment count
         erase_count++;
-        // TODO push front deleted tempnode
-        // push_front_deleted(tempnode.offset);
+        push_front_deleted(tempNode.m_offset);
+        // save the bucket
+        m_bf.write(bucket, index);
     }
     while(tempNode.m_next != 0) {
         // if we find it return it
@@ -176,10 +176,10 @@ int DiskMultiMap::erase(const std::string &key, const std::string &value, const 
         if (searchNode.m_key == key && searchNode.m_value == value && searchNode.m_context == context){
             // tempnode points to node above
             tempNode.m_next = searchNode.m_next;
-            // delete searchndoe TODO
-            // push_front_deleted(searchNode.offset);
             // something was deleted so icnrement delete count
             erase_count++;
+            push_front_deleted(searchNode.m_offset);
+            // save the node above, aka tempnode
             m_bf.write(tempNode,tempNode.m_offset);
             // continue since we already changed tempnodes next value,
             // tempnode.m_next will already give us something new
@@ -264,4 +264,25 @@ int DiskMultiMap::getBucketIndex(const std::string &key) {
     hash = abs(hash);
     BinaryFile::Offset index = ((hash % m_header.num_buckets) * sizeof(Bucket))+ m_header.hashmap_head;
     return index;
+}
+
+// put a node at the front of the dleeted node linked list
+bool DiskMultiMap::push_front_deleted(BinaryFile::Offset offset) {
+    // if the list was empty, just make head equal to this value
+    // if the list is not empty then put head in another place, then put this value in head
+
+    BucketNode p;
+    // get the node from the file
+    m_bf.read(p, offset);
+    // cleaning up
+    p.m_value[0] = p.m_key[0] = p.m_context[0] = 0;
+    // point that thing to head
+    p.m_next = m_header.m_deleted_node_head;
+    // point head to p;
+    m_header.m_deleted_node_head = p.m_offset;
+    // save header
+    m_bf.write(m_header,0);
+    // save our data
+    m_bf.write(p, p.m_offset);
+    return true;
 }

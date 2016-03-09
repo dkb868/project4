@@ -81,6 +81,7 @@ public:
 private:
     BinaryFile m_bf;
     Header m_header;
+    bool push_front_deleted(BinaryFile::Offset offset);
     // Your private member declarations will go here
 };
 
