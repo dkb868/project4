@@ -51,10 +51,7 @@ bool DiskMultiMap::openExisting(const std::string &filename) {
         m_bf.close();
     }
 
-    bool success = m_bf.openExisting(filename) && m_bf.read(m_header, 0);
-    BucketNode temp;
-    assert(m_bf.read(temp,1020));
-    return success;
+   return m_bf.openExisting(filename) && m_bf.read(m_header, 0);
 }
 
 void DiskMultiMap::close() {
