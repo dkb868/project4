@@ -133,12 +133,6 @@ DiskMultiMap::Iterator DiskMultiMap::search(const std::string &key) {
     m_bf.read(bucket, index);
     // if the list is empty then return
     if (bucket.head == 0) return DiskMultiMap::Iterator();
-    BucketNode temp("key","value","context",0);
-    m_bf.write(temp, 372);
-    for (BinaryFile::Offset i=340;;i++){
-        m_bf.read(temp, i);
-        cout << "lol";
-    }
     m_bf.read(m_header,0);
     BucketNode searchNode;
     m_bf.read(searchNode, bucket.head);

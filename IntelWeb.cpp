@@ -200,6 +200,7 @@ bool IntelWeb::purge(const std::string &entity) {
     return false;
 }
 
+// TODO should rpevalnce be stored on disk?
 // get the prevalnce of a string
 int IntelWeb::getPrevalence(const std::string& name) {
     int prevalence = 0;
