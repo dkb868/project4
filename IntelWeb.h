@@ -2,6 +2,7 @@
 #define INTELWEB_H_
 
 #include "InteractionTuple.h"
+#include "DiskMultiMap.h"
 #include <string>
 #include <vector>
 
@@ -23,6 +24,12 @@ public:
 
 private:
     // Your private member declarations will go here
+    // For now, two multi maps will be used
+    // one from intiation to associated values
+    DiskMultiMap m_initiator_map;
+    // and oen from target to associated values
+    DiskMultiMap m_target_map;
+    int getPrevalence(const std::string& name);
 };
 
 #endif // INTELWEB_H_

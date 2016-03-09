@@ -1,12 +1,19 @@
 #include "DiskMultiMap.h"
 #include <functional>
+#include <cassert>
+#include <cmath>
 
 DiskMultiMap::DiskMultiMap() {
-
+    m_header.num_buckets = 0;
+    m_header.hashmap_head = sizeof(Header);
+    m_header.hashmap_end = m_header.hashmap_head;
+    m_header.m_size = 0;
+    // LET 0 mean NULL
+    m_header.m_deleted_node_head = 0;
 }
 
 DiskMultiMap::~DiskMultiMap() {
-
+    close();
 }
 
 bool DiskMultiMap::createNew(const std::string &filename, unsigned int numBuckets) {
@@ -14,6 +21,8 @@ bool DiskMultiMap::createNew(const std::string &filename, unsigned int numBucket
         m_bf.close();
     }
     if (m_bf.createNew(filename)) {
+        // TODO delete this intiliazer stuff when SAFE
+        // TODO because it's now done in the constructor
         m_header.num_buckets = numBuckets;
         m_header.hashmap_head = sizeof(Header);
         m_header.hashmap_end = numBuckets * sizeof(Bucket) + m_header.hashmap_head;
@@ -42,7 +51,7 @@ bool DiskMultiMap::openExisting(const std::string &filename) {
         m_bf.close();
     }
 
-    return m_bf.openExisting(filename) && m_bf.read(m_header, 0);
+   return m_bf.openExisting(filename) && m_bf.read(m_header, 0);
 }
 
 void DiskMultiMap::close() {
@@ -54,15 +63,14 @@ void DiskMultiMap::close() {
 
 bool DiskMultiMap::insert(const std::string &key, const std::string &value, const std::string &context) {
     if (key.size() > 120 || value.size() > 120 || context.size() > 120) return false;
-    int hash = std::hash<std::string>()(key);
-    int index = (hash % m_header.num_buckets) + m_header.hashmap_head;
+    int index = getBucketIndex(key);
     Bucket bucket;
     // get the bucket at that hash index
-    m_bf.read(bucket, index);
+    assert(m_bf.read(bucket, index));
     // if the list was empty, just make head equal to this value
     // if the list is not empty then put head in another place, then put this value in head
     // create new node,pointing to head
-    BucketNode p(key,value,context, bucket.head);
+    BucketNode bucketNode(key, value, context, bucket.head);
 
     // CHECK TO SEE IF WE HAVE ANY DELETED NODES
     if (m_header.m_deleted_node_head != 0){
@@ -71,11 +79,11 @@ bool DiskMultiMap::insert(const std::string &key, const std::string &value, cons
         BucketNode temp;
         m_bf.read(temp, m_header.m_deleted_node_head);
         // write p to deleted head's offset
-        p.m_offset = m_header.m_deleted_node_head;
-        m_bf.write(p,m_header.m_deleted_node_head);
+        bucketNode.m_offset = m_header.m_deleted_node_head;
+        m_bf.write(bucketNode, m_header.m_deleted_node_head);
 
         // set head to p
-        bucket.head = p.m_offset;
+        bucket.head = bucketNode.m_offset;
         // save bucket
         m_bf.write(bucket, index);
         // poitn deleted head to its next value
@@ -88,26 +96,34 @@ bool DiskMultiMap::insert(const std::string &key, const std::string &value, cons
 
     // write the new node to the file at the current latest offset
     // which is the size of the list (or the size of 1 item was added) multiplied by the size of a disk node
-    BinaryFile::Offset offset = (sizeof(BucketNode) * (m_header.m_size+1)) + m_header.hashmap_end;
+    // TODO filelength -1 or +1 or ?
+    BinaryFile::Offset offset = m_bf.fileLength(); // now using filelength instead of size
     // set the nodes offset to the place where it was palced
-    p.m_offset = offset;
+    bucketNode.m_offset = offset;
     // add to the latest offset
     // currently m_size is only incremented
-    m_bf.write(p, offset);
+    assert(m_bf.write(bucketNode, offset));
     m_header.m_size++;
-    // ave info in header
-    m_bf.write(m_header, 0);
+    // save info in header
+    assert(m_bf.write(m_header, 0));
     // set head to p
-    bucket.head = p.m_offset;
+    bucket.head = bucketNode.m_offset;
+
     // save the bucket
-    m_bf.write(bucket, index);
+    assert(m_bf.write(bucket, index));
+
+    // FINALLY VERIFY THAT THE DATA WAS ACTUALLY INSERTED 100% CONFIRMED
+    BucketNode temp;
+    assert(m_bf.read(temp,bucketNode.m_offset));
+    cout << "FINAL Bucket Node Key: " << temp.m_key << endl;
+    cout << " FINAL Bucket Node Value: " << temp.m_value <<endl;
+    cout << "FINAL Bucket Offset: " <<temp.m_offset << endl;
     return true;
 }
 
 DiskMultiMap::Iterator DiskMultiMap::search(const std::string &key) {
     if (key.size() > 120) return DiskMultiMap::Iterator();
-    int hash = std::hash<std::string>()(key);
-    int index = (hash % m_header.num_buckets) + m_header.hashmap_head;
+    int index = getBucketIndex(key);
     Bucket bucket;
     // get the bucket at that hash index
     m_bf.read(bucket, index);
@@ -132,8 +148,7 @@ DiskMultiMap::Iterator DiskMultiMap::search(const std::string &key) {
 int DiskMultiMap::erase(const std::string &key, const std::string &value, const std::string &context) {
     if (key.size() > 120 || value.size() > 120 || context.size() > 120) return 0;
     int erase_count = 0; // count the erases lol
-    int hash = std::hash<std::string>()(key);
-    int index = (hash % m_header.num_buckets) + m_header.hashmap_head;
+    int index = getBucketIndex(key);
     Bucket bucket;
     // get the bucket at that hash index
     m_bf.read(bucket, index);
@@ -199,7 +214,7 @@ bool DiskMultiMap::Iterator::isValid() const {
 
 DiskMultiMap::Iterator &DiskMultiMap::Iterator::operator++() {
     if (!isValid()){
-        return *this;
+        return *this; // TODO get pointer to binary file instaed of entire map
     }
 
     BucketNode bucketNode; // TODO while soemthign
@@ -240,4 +255,13 @@ MultiMapTuple DiskMultiMap::Iterator::operator*() {
     tuple.key = bucketNode.m_key;
     tuple.value = bucketNode.m_value;
     return tuple;
+}
+
+// hashes a string and gets the location of the bucket,
+// since this fucked my code earlier, better have its own function
+int DiskMultiMap::getBucketIndex(const std::string &key) {
+    long hash = std::hash<std::string>()(key);
+    hash = abs(hash);
+    BinaryFile::Offset index = ((hash % m_header.num_buckets) * sizeof(Bucket))+ m_header.hashmap_head;
+    return index;
 }
