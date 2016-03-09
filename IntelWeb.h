@@ -29,6 +29,7 @@ private:
     DiskMultiMap m_initiator_map;
     // and oen from target to associated values
     DiskMultiMap m_target_map;
+    int getPrevalence(const std::string& name);
 };
 
 #endif // INTELWEB_H_

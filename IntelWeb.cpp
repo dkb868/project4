@@ -53,7 +53,6 @@ bool IntelWeb::openExisting(const std::string &filePrefix) {
        m_target_map.close();
        return false;
    }
-
 }
 
 void IntelWeb::close() {
@@ -66,7 +65,7 @@ bool IntelWeb::ingest(const std::string &telemetryFile) {
     ifstream file;
     std::string line;
     // open the file
-    file.open("/home/mitrikyle/ClionProjects/project4/log.txt");
+    file.open(telemetryFile);
     // if succesful
     if(file.is_open()){
         // while we aren't at the end of the file
@@ -82,13 +81,11 @@ bool IntelWeb::ingest(const std::string &telemetryFile) {
             ss >> machine;
             ss >> initiator;
             ss >> target;
-            cout << "Machine: " << machine << endl;
-            cout << "Initiator: " << initiator << endl;
-            cout << "Target: " << target << endl;
+
             // store this data in our maps.
-            // unstable code below TODO WARNING
-          //  m_initiator_map.insert(initiator, target, machine);
-          //  m_target_map.insert(target,initiator,machine);
+            // potentially unstable code below TODO WARNING
+            m_initiator_map.insert(initiator, target, machine);
+            m_target_map.insert(target,initiator,machine);
 
         }
         return true;
@@ -99,12 +96,13 @@ bool IntelWeb::ingest(const std::string &telemetryFile) {
 unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsigned int minPrevalenceToBeGood,
                              std::vector <std::string> &badEntitiesFound,
                              std::vector<InteractionTuple> &interactions) {
+    // TODO is this necessary?
+    badEntitiesFound.clear();
     // indicators is a vector of known malicous entities
 
     // Compute prevalence
     // prevalence = no. occcurences in target
     // + no. occurences in intiator
-    // TODO
     // for every malicious thingy
     // add it to the queue
     // this queue stores all the bad entities :o
@@ -116,68 +114,74 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
     }
     while (!bad_entities.empty()){
         std::string curr = bad_entities.front();
+        bad_entities.pop();
         // if we are checking something in history, continue
         if (bad_entities_history.find(curr) != bad_entities_history.end())
             continue;
         // add the curr string to the history
         bad_entities_history.insert(curr);
-        bad_entities.pop();
-        // getiterator to all files associated with the current, first from the intiatior map
-        auto it = m_initiator_map.search(curr);
+        // get the prevalance of the value/target
+        // IF THE PREVALNCE IS ALREADY TOO HIGH, just continue becuase the file cannot eb bad
+        if (getPrevalence(curr) >= minPrevalenceToBeGood)
+            continue;
+        auto initiator_it = m_initiator_map.search(curr);
         // TODO what about that other map :o
         // apply the rules to all the associated files
-        while (it.isValid()){
-            // if the value is already malicious, go to next
-            if (bad_entities_history.find((*it).value) != bad_entities_history.end()){
-                ++it;
+        // since the prevalnce is low enough at this point, the thing must be a virus.
+        while (initiator_it.isValid()){
+            MultiMapTuple temp = (*initiator_it);
+            // add all the interaction pairs essentially everything involving the curr vaule (only as an initiator) TODO unique
+            InteractionTuple interactionTuple(temp.key,temp.value,temp.context);
+            // store this tuple in the vector
+            interactions.push_back(interactionTuple);
+            // if the value is already malicious or if its prevalnce is too high, go to next
+            if ((bad_entities_history.find(temp.value) != bad_entities_history.end())
+                    || getPrevalence(temp.value) >= minPrevalenceToBeGood){
+                ++initiator_it;
                 continue;
             } else {
                 // otherwise apply the actual rules wtf
-                // get the prevalance of the value/target
-                int prevalance = 0;
-                auto initiator_it = m_initiator_map.search(curr);
-                while (initiator_it.isValid()){
-                    ++prevalance;
-                    ++initiator_it;
-                }
-                auto target_it = m_target_map.search(curr);
-                while (target_it.isValid()){
-                    ++prevalance;
-                    ++target_it;
-                }
-
-                // we now, probably inefficiently , have the prevalance
-                // if the prevalance is greater than equal to the good threshhold, continue,
-                // because the thing is then not a virus
-                if (prevalance >= minPrevalenceToBeGood){
-                    ++it;
-                    //TODO, also add to the history? or nah?
-                    continue;
-                } else {
-                    // store new virus value
-                    std::string bad_discovery = (*it).value;
-                    // otherwise WE FOUND A VIRUS OMG WTF TO DO?
-                    // add it to the vector of bad entities?
-                    // TODO should values in the given vector of malicious values be added to badEntitiesFound as well???
-                    badEntitiesFound.push_back(bad_discovery);
-                    // add to the queue of bad entites
-                    bad_entities.push(bad_discovery);
-                    // add all the interaction pairs
-                    // TODO DEAR LORD HOW MUCH WHILE LOOPS?
-                    while (it.isValid()){
-                        MultiMapTuple temp = (*it);
-                        InteractionTuple interactionTuple(temp.key,temp.value,temp.context);
-                        // store this tuple in the vector
-                        interactions.push_back(interactionTuple);
-                        // increment the iterator
-                        ++it;
-                    }
-
-
-                }
-
+                // store new virus value
+                std::string bad_discovery = temp.value;
+                // otherwise WE FOUND A VIRUS OMG WTF TO DO?
+                // add it to the vector of bad entities?
+                // TODO should values in the given vector of malicious values be added to badEntitiesFound as well???
+                badEntitiesFound.push_back(bad_discovery);
+                // add to the queue of bad entites
+                bad_entities.push(bad_discovery);
+                // increment the iterator
+                ++initiator_it;
             }
-
+        }
+        // do the exact thing except on the target map instead of the interaction map
+        auto target_it = m_target_map.search(curr);
+        while (target_it.isValid()){
+            MultiMapTuple temp = (*target_it);
+            // add all the interaction pairs essentially everything involving the curr vaule (only as an initiator) TODO unique
+            // order changed since first is from and second is to,
+            // the key is the to since this is the target map
+            // and the value is the from
+            InteractionTuple interactionTuple(temp.value,temp.key,temp.context);
+            // store this tuple in the vector
+            interactions.push_back(interactionTuple);
+            // if the value is already malicious or if its prevalnce is too high, go to next
+            if ((bad_entities_history.find(temp.value) != bad_entities_history.end())
+                || getPrevalence(temp.value) >= minPrevalenceToBeGood){
+                ++target_it;
+                continue;
+            } else {
+                // otherwise apply the actual rules wtf
+                // store new virus value
+                std::string bad_discovery = temp.value;
+                // otherwise WE FOUND A VIRUS OMG WTF TO DO?
+                // add it to the vector of bad entities?
+                // TODO should values in the given vector of malicious values be added to badEntitiesFound as well???
+                badEntitiesFound.push_back(bad_discovery);
+                // add to the queue of bad entites
+                bad_entities.push(bad_discovery);
+                // increment the iterator
+                ++target_it;
+            }
         }
     }
     // while the queue isn't empty,
@@ -188,9 +192,26 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
     // add the item tp the set of already done items
     // add all the newly discovered malicious items to the queue
     // keep going
-    return 0;
+    // TODO actualy think about this return value
+    return badEntitiesFound.size() + indicators.size();
 }
 
 bool IntelWeb::purge(const std::string &entity) {
     return false;
+}
+
+// get the prevalnce of a string
+int IntelWeb::getPrevalence(const std::string& name) {
+    int prevalence = 0;
+    auto initiator_it = m_initiator_map.search(name);
+    while (initiator_it.isValid()){
+        ++prevalence;
+        ++initiator_it;
+    }
+    auto target_it = m_target_map.search(name);
+    while (target_it.isValid()){
+        ++prevalence;
+        ++target_it;
+    }
+    return prevalence;
 }

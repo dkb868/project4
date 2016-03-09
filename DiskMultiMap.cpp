@@ -1,5 +1,6 @@
 #include "DiskMultiMap.h"
 #include <functional>
+#include <cassert>
 
 DiskMultiMap::DiskMultiMap() {
     m_header.num_buckets = 0;
@@ -65,11 +66,11 @@ bool DiskMultiMap::insert(const std::string &key, const std::string &value, cons
     int index = (hash % m_header.num_buckets) + m_header.hashmap_head;
     Bucket bucket;
     // get the bucket at that hash index
-    m_bf.read(bucket, index);
+    assert(m_bf.read(bucket, index));
     // if the list was empty, just make head equal to this value
     // if the list is not empty then put head in another place, then put this value in head
     // create new node,pointing to head
-    BucketNode p(key,value,context, bucket.head);
+    BucketNode bucketNode(key, value, context, bucket.head);
 
     // CHECK TO SEE IF WE HAVE ANY DELETED NODES
     if (m_header.m_deleted_node_head != 0){
@@ -78,11 +79,11 @@ bool DiskMultiMap::insert(const std::string &key, const std::string &value, cons
         BucketNode temp;
         m_bf.read(temp, m_header.m_deleted_node_head);
         // write p to deleted head's offset
-        p.m_offset = m_header.m_deleted_node_head;
-        m_bf.write(p,m_header.m_deleted_node_head);
+        bucketNode.m_offset = m_header.m_deleted_node_head;
+        m_bf.write(bucketNode, m_header.m_deleted_node_head);
 
         // set head to p
-        bucket.head = p.m_offset;
+        bucket.head = bucketNode.m_offset;
         // save bucket
         m_bf.write(bucket, index);
         // poitn deleted head to its next value
@@ -97,17 +98,29 @@ bool DiskMultiMap::insert(const std::string &key, const std::string &value, cons
     // which is the size of the list (or the size of 1 item was added) multiplied by the size of a disk node
     BinaryFile::Offset offset = (sizeof(BucketNode) * (m_header.m_size+1)) + m_header.hashmap_end;
     // set the nodes offset to the place where it was palced
-    p.m_offset = offset;
+    bucketNode.m_offset = offset;
     // add to the latest offset
     // currently m_size is only incremented
-    m_bf.write(p, offset);
+    m_bf.write(bucketNode, offset);
     m_header.m_size++;
     // ave info in header
     m_bf.write(m_header, 0);
     // set head to p
-    bucket.head = p.m_offset;
+    bucket.head = bucketNode.m_offset;
+    cout << "Bucket Node Key: " << bucketNode.m_key << endl;
+    cout << "Bucket Node Value: " << bucketNode.m_value <<endl;
+    cout << "Bucket Offset: " <<bucketNode.m_offset << endl;
     // save the bucket
     m_bf.write(bucket, index);
+
+
+
+    // FINALLY VERIFY THAT THE DATA WAS ACTUALLY INSERTED 100% CONFIRMED
+    BucketNode temp;
+    m_bf.read(temp,bucketNode.m_offset);
+    cout << "FINAL Bucket Node Key: " << temp.m_key << endl;
+    cout << " FINAL Bucket Node Value: " << temp.m_value <<endl;
+    cout << "FINAL Bucket Offset: " <<temp.m_offset << endl;
     return true;
 }
 
@@ -120,6 +133,13 @@ DiskMultiMap::Iterator DiskMultiMap::search(const std::string &key) {
     m_bf.read(bucket, index);
     // if the list is empty then return
     if (bucket.head == 0) return DiskMultiMap::Iterator();
+    BucketNode temp("key","value","context",0);
+    m_bf.write(temp, 372);
+    for (BinaryFile::Offset i=340;;i++){
+        m_bf.read(temp, i);
+        cout << "lol";
+    }
+    m_bf.read(m_header,0);
     BucketNode searchNode;
     m_bf.read(searchNode, bucket.head);
     while(true) {
@@ -206,7 +226,7 @@ bool DiskMultiMap::Iterator::isValid() const {
 
 DiskMultiMap::Iterator &DiskMultiMap::Iterator::operator++() {
     if (!isValid()){
-        return *this;
+        return *this; // TODO get pointer to binary file instaed of entire map
     }
 
     BucketNode bucketNode; // TODO while soemthign
