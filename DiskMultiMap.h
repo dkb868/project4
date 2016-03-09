@@ -27,23 +27,20 @@ struct Bucket {
 
 struct BucketNode {
     BucketNode() {
-        m_key= m_value = m_context=0;
+        m_key[0]= m_value[0] = m_context[0] = 0;
         m_offset = 0;
         m_next = 0;
     };
     BucketNode(const string &key, const string &value, const string &context, BinaryFile::Offset next){
-       m_key = new char[120];
-        m_value = new char[120];
-        m_context = new char[120];
         strcpy(m_key, key.c_str());
         strcpy(m_value, value.c_str());
         strcpy(m_context, context.c_str());
         m_offset = 0;
         m_next = next;
     };
-    char* m_key;
-    char* m_value;
-    char* m_context;
+    char m_key[121];
+    char m_value[121];
+    char m_context[121];
     BinaryFile::Offset m_offset;
     BinaryFile::Offset m_next;
 
