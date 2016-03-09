@@ -199,13 +199,12 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
 bool IntelWeb::purge(const std::string &entity) {
     vector<MultiMapTuple> initiator_list;
     vector<MultiMapTuple> target_list;
-    auto it = m_initiator_map.search(entity);
-    while (it.isValid()){
+    for (auto it = m_initiator_map.search(entity); it.isValid(); ++it){
         initiator_list.push_back(*it);
     }
-    auto target_it = m_target_map.search(entity);
-    while(target_it.isValid()){
-        target_list.push_back(*it);
+
+    for( auto target_it = m_target_map.search(entity); target_it.isValid() ; ++target_it){
+        target_list.push_back(*target_it);
     }
     for (auto tuple : initiator_list){
         m_initiator_map.erase(tuple.key,tuple.value,tuple.context);
