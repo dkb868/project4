@@ -15,6 +15,8 @@ struct InteractionTuple
     std::string from;
     std::string to;
     std::string context;
+
+
 };
 
 #endif // INTERACTIONTUPLE_H_

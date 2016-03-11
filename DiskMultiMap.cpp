@@ -161,6 +161,7 @@ int DiskMultiMap::erase(const std::string &key, const std::string &value, const 
     BucketNode searchNode;
     m_bf.read(tempNode, bucket.head);
     // if value is found
+    // TODO use strcmp
     if (tempNode.m_key == key && tempNode.m_value == value && tempNode.m_context == context){
         // head = p->next
         bucket.head = tempNode.m_next;

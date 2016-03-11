@@ -8,6 +8,7 @@
 #include <queue>
 #include <set>
 #include <vector>
+#include <algorithm>
 
 
 IntelWeb::IntelWeb() {
@@ -110,6 +111,8 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
     std::queue<string> bad_entities;
     // this set stores all the bad entiteies we already dealt with
     std::set<string> bad_entities_history;
+    // this set stores al the interactions sorted
+    std::set<InteractionTuple> bad_interactions;
     for (std::string indicator : indicators){
         bad_entities.push(indicator);
     }
@@ -134,7 +137,7 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
             // add all the interaction pairs essentially everything involving the curr vaule (only as an initiator) TODO unique
             InteractionTuple interactionTuple(temp.key,temp.value,temp.context);
             // store this tuple in the vector
-            interactions.push_back(interactionTuple);
+            bad_interactions.insert(interactionTuple);
             // if the value is already malicious or if its prevalnce is too high, go to next
             if ((bad_entities_history.find(temp.value) != bad_entities_history.end())
                     || getPrevalence(temp.value) >= minPrevalenceToBeGood){
@@ -164,7 +167,7 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
             // and the value is the from
             InteractionTuple interactionTuple(temp.value,temp.key,temp.context);
             // store this tuple in the vector
-            interactions.push_back(interactionTuple);
+            bad_interactions.insert(interactionTuple);
             // if the value is already malicious or if its prevalnce is too high, go to next
             if ((bad_entities_history.find(temp.value) != bad_entities_history.end())
                 || getPrevalence(temp.value) >= minPrevalenceToBeGood){
@@ -185,6 +188,15 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
             }
         }
     }
+
+    // SORT BAD ENTITIES FOUND
+    std::sort(badEntitiesFound.begin(),badEntitiesFound.end());
+
+    // put bad interactions the vector, already sorted
+    for (auto tuple : bad_interactions){
+        interactions.push_back(tuple);
+    }
+
     // while the queue isn't empty,
     // apply rules to the item in queue
         // APPLYING RULES
@@ -194,10 +206,25 @@ unsigned int IntelWeb::crawl(const std::vector <std::string> &indicators, unsign
     // add all the newly discovered malicious items to the queue
     // keep going
     // TODO actualy think about this return value
-    return badEntitiesFound.size() + indicators.size();
+    return static_cast<int>(badEntitiesFound.size());
+}
+bool operator<(const InteractionTuple& lhs, const InteractionTuple& rhs) {
+    if (lhs.context < rhs.context){
+        return true;
+    } else if (lhs.context == rhs.context){
+        if (lhs.from < rhs.from){
+            return true;
+        } else if (lhs.from == rhs.from){
+            if (lhs.to < rhs.to){
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 bool IntelWeb::purge(const std::string &entity) {
+    // TODO aplhabetical order??
     std::vector<MultiMapTuple> initiator_list;
     std::vector<MultiMapTuple> target_list;
     for (auto it = m_initiator_map.search(entity); it.isValid(); ++it){
