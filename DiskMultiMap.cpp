@@ -1,6 +1,5 @@
 #include "DiskMultiMap.h"
 #include <functional>
-#include <cassert>
 #include <cmath>
 
 DiskMultiMap::DiskMultiMap() {
@@ -65,7 +64,7 @@ bool DiskMultiMap::insert(const std::string &key, const std::string &value, cons
     int index = getBucketIndex(key);
     Bucket bucket;
     // get the bucket at that hash index
-    assert(m_bf.read(bucket, index));
+    m_bf.read(bucket, index);
     // if the list was empty, just make head equal to this value
     // if the list is not empty then put head in another place, then put this value in head
     // create new node,pointing to head
@@ -95,28 +94,22 @@ bool DiskMultiMap::insert(const std::string &key, const std::string &value, cons
 
     // write the new node to the file at the current latest offset
     // which is the size of the list (or the size of 1 item was added) multiplied by the size of a disk node
-    // TODO filelength -1 or +1 or ?
     BinaryFile::Offset offset = m_bf.fileLength(); // now using filelength instead of size
     // set the nodes offset to the place where it was palced
+    // TODO clean
     bucketNode.m_offset = offset;
     // add to the latest offset
     // currently m_size is only incremented
-    assert(m_bf.write(bucketNode, offset));
+    m_bf.write(bucketNode, offset);
     m_header.m_size++;
     // save info in header
-    assert(m_bf.write(m_header, 0));
+    m_bf.write(m_header, 0);
     // set head to p
     bucket.head = bucketNode.m_offset;
 
     // save the bucket
-    assert(m_bf.write(bucket, index));
+    m_bf.write(bucket, index);
 
-    // FINALLY VERIFY THAT THE DATA WAS ACTUALLY INSERTED 100% CONFIRMED
-    BucketNode temp;
-    assert(m_bf.read(temp,bucketNode.m_offset));
-    cout << "FINAL Bucket Node Key: " << temp.m_key << endl;
-    cout << " FINAL Bucket Node Value: " << temp.m_value <<endl;
-    cout << "FINAL Bucket Offset: " <<temp.m_offset << endl;
     return true;
 }
 
@@ -146,7 +139,7 @@ DiskMultiMap::Iterator DiskMultiMap::search(const std::string &key) {
 
 int DiskMultiMap::erase(const std::string &key, const std::string &value, const std::string &context) {
     if (key.size() > 120 || value.size() > 120 || context.size() > 120) return 0;
-    int erase_count = 0; // count the erases lol
+    int erase_count = 0; // count the erases
     int index = getBucketIndex(key);
     Bucket bucket;
     // get the bucket at that hash index
@@ -160,7 +153,6 @@ int DiskMultiMap::erase(const std::string &key, const std::string &value, const 
     BucketNode searchNode;
     m_bf.read(tempNode, bucket.head);
     // if value is found
-    // TODO use strcmp
     if (tempNode.m_key == key && tempNode.m_value == value && tempNode.m_context == context){
         // head = p->next
         bucket.head = tempNode.m_next;
@@ -214,10 +206,10 @@ bool DiskMultiMap::Iterator::isValid() const {
 
 DiskMultiMap::Iterator &DiskMultiMap::Iterator::operator++() {
     if (!isValid()){
-        return *this; // TODO get pointer to binary file instaed of entire map
+        return *this;
     }
 
-    BucketNode bucketNode; // TODO while soemthign
+    BucketNode bucketNode; // TODO while soemthign CLEAN
     (*m_bf).read(bucketNode,m_offset);
     std::string original_key = bucketNode.m_key;
     while (true) {
