@@ -17,7 +17,7 @@ DiskMultiMap::~DiskMultiMap() {
 }
 
 bool DiskMultiMap::createNew(const std::string &filename, unsigned int numBuckets) {
-    if (!m_bf.isOpen()){
+    if (m_bf.isOpen()){
         m_bf.close();
     }
     if (m_bf.createNew(filename)) {
@@ -41,7 +41,8 @@ bool DiskMultiMap::createNew(const std::string &filename, unsigned int numBucket
 }
 
 bool DiskMultiMap::openExisting(const std::string &filename) {
-    if (!m_bf.isOpen()){
+    // if its open close it
+    if (m_bf.isOpen()){
         m_bf.close();
     }
 
