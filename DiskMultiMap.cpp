@@ -21,14 +21,8 @@ bool DiskMultiMap::createNew(const std::string &filename, unsigned int numBucket
         m_bf.close();
     }
     if (m_bf.createNew(filename)) {
-        // TODO delete this intiliazer stuff when SAFE
-        // TODO because it's now done in the constructor
         m_header.num_buckets = numBuckets;
-        m_header.hashmap_head = sizeof(Header);
         m_header.hashmap_end = numBuckets * sizeof(Bucket) + m_header.hashmap_head;
-        m_header.m_size = 0;
-        // LET 0 mean NULL
-        m_header.m_deleted_node_head = 0;
         // save the header
         m_bf.write(m_header, 0);
         // store the location that we are creating a bucket
@@ -202,11 +196,11 @@ DiskMultiMap::Iterator::Iterator() {
 
 DiskMultiMap::Iterator::Iterator(BinaryFile::Offset offset, DiskMultiMap *map) {
     m_offset = offset;
-    m_map = map;
+    m_bf = &map->m_bf;
 }
 
 DiskMultiMap::Iterator::Iterator(DiskMultiMap *map) {
-    m_map = map;
+    m_bf = &map->m_bf;
 }
 
 bool DiskMultiMap::Iterator::isValid() const {
@@ -219,7 +213,7 @@ DiskMultiMap::Iterator &DiskMultiMap::Iterator::operator++() {
     }
 
     BucketNode bucketNode; // TODO while soemthign
-    (m_map->m_bf).read(bucketNode,m_offset);
+    (*m_bf).read(bucketNode,m_offset);
     std::string original_key = bucketNode.m_key;
     while (true) {
         // if we reach the end break
@@ -229,7 +223,7 @@ DiskMultiMap::Iterator &DiskMultiMap::Iterator::operator++() {
             return *this;
         }
         // increment bucketNode
-        (m_map->m_bf).read(bucketNode,bucketNode.m_next);
+        (*m_bf).read(bucketNode,bucketNode.m_next);
         // if the key is found
         if (bucketNode.m_key == original_key){
             // point to it
@@ -249,7 +243,7 @@ MultiMapTuple DiskMultiMap::Iterator::operator*() {
     MultiMapTuple tuple;
     BucketNode bucketNode;
     // read the bucket node at the current offset
-    (m_map->m_bf).read(bucketNode,m_offset);
+    (*m_bf).read(bucketNode,m_offset);
 
     // put all that data into tuple
     tuple.context = bucketNode.m_context;

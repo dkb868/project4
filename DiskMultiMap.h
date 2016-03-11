@@ -64,7 +64,7 @@ public:
 
     private:
         BinaryFile::Offset m_offset;
-        DiskMultiMap* m_map;
+        BinaryFile* m_bf;
         // Your private member declarations will go here
     };
 
@@ -76,12 +76,12 @@ public:
     bool insert(const std::string& key, const std::string& value, const std::string& context);
     Iterator search(const std::string& key);
     int erase(const std::string& key, const std::string& value, const std::string& context);
-    int getBucketIndex(const std::string& key);
 
 private:
     BinaryFile m_bf;
     Header m_header;
     bool push_front_deleted(BinaryFile::Offset offset);
+    int getBucketIndex(const std::string& key);
     // Your private member declarations will go here
 };
 
