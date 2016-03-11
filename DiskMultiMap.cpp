@@ -45,7 +45,11 @@ bool DiskMultiMap::openExisting(const std::string &filename) {
         m_bf.close();
     }
 
-   return m_bf.openExisting(filename) && m_bf.read(m_header, 0);
+   if(m_bf.openExisting(filename)) {
+       m_bf.read(m_header, 0);
+       return true;
+   }
+   return false;
 }
 
 void DiskMultiMap::close() {
