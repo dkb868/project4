@@ -16,7 +16,8 @@ IntelWeb::IntelWeb() {
 }
 
 IntelWeb::~IntelWeb() {
-    // TODO
+    // close fiels
+    close();
 }
 
 bool IntelWeb::createNew(const std::string &filePrefix, unsigned int maxDataItems) {
@@ -59,7 +60,7 @@ bool IntelWeb::openExisting(const std::string &filePrefix) {
 
 void IntelWeb::close() {
     // close all our maps
-    m_target_map.close();
+    m_initiator_map.close();
     m_target_map.close();
 }
 
